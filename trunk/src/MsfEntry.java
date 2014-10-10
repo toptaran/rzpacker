@@ -35,8 +35,8 @@ public class MsfEntry
 		lenMRFN = (short) mrfFileNameb.length;
 		
 		fileName = filename;
-		fileNameb = mrfFileName.getBytes(Charset.forName("EUC-KR"));
-		lenName = (short) mrfFileNameb.length;
+		fileNameb = fileName.getBytes(Charset.forName("EUC-KR"));
+		lenName = (short) fileNameb.length;
 	}
 	
 	public static MsfEntry readEntry(ByteBuffer buf)
