@@ -1,0 +1,24 @@
+USAGE:
+-- replace data, clientdir - where is fileindex present, filesdir - where is dir Data present with new files
+-replace [clientdir] [filesdir]
+
+-- unpack data, clientdir - where is fileindex present, filesdir - where is unpack files
+-unpack [clientdir] [outdir]
+
+-- patch all *.exe, *.dat and Fileindex.msf  and change crypt to our, clientdir - where is fileindex present
+-patch [clientdir]
+
+-- list all files from Fileindex.msf
+-list [clientdir]
+
+-- decrypt file (for example: buildver.mvf, RaiderZ Launcher.dat, recovery.dat) and save it to filename.txt
+-decrypt [file]
+
+-- encrypt file (for example: buildver.mvf, RaiderZ Launcher.dat, recovery.dat) and save it to filename.dat
+-encrypt [file]
+
+-- make hash of client files (filehash.msf)
+-filehash [clientdir]
+
+-- build patch (before build patch do not forget to make hash)
+-buildpatch [newclientdir] [oldclientdir]
