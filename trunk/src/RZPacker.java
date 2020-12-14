@@ -22,6 +22,15 @@ public class RZPacker
 			else
 				showconfigs = true;
 		}
+		else if (args.length == 1)
+		{
+			if (args[0].equalsIgnoreCase("-genkeys"))
+			{
+				generateKeys();
+			}
+			else
+				showconfigs = true;
+		}
 		else if (args.length == 2)
 		{
 			if (args[0].equalsIgnoreCase("-patch"))
@@ -141,6 +150,9 @@ public class RZPacker
 			System.out.println();
 			System.out.println("-- build patch (before build patch do not forget to make hash)");
 			System.out.println("-buildpatch [newclientdir] [oldclientdir]");
+			System.out.println();
+			System.out.println("-- generate new private and public keys");
+			System.out.println("-genkeys");
 		}
 	}
 	
@@ -812,5 +824,13 @@ public class RZPacker
 			}
 			System.out.println("Done.");
 			return true;
+	}
+        
+	public static void generateKeys()
+	{
+		if (EciesCryptoPP.generateAndSaveKeys())
+			System.out.println("Keys successfully generated and saved!");
+		else
+			System.out.println("Save error!");
 	}
 }

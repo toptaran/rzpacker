@@ -22,3 +22,6 @@ USAGE:
 
 -- build patch (before build patch do not forget to make hash)
 -buildpatch [newclientdir] [oldclientdir]
+
+-- generate new private and public keys
+-genkeys

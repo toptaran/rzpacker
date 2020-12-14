@@ -1,5 +1,6 @@
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileOutputStream;
 
 /**
  *
@@ -47,6 +48,61 @@ public class EciesCryptoPP
 	{
 		return encrypt(publicKey, publicKey.length, decdata, decdata.length);
 	}
+        
+        public static String generateKeys()
+        {
+                return genkeys();
+        }
+        
+        public static boolean generateAndSaveKeys()
+        {
+                String[] keys = generateKeys().split(";");
+                String privKey = keys[1];
+                String pubKey = keys[0];
+                
+		FileOutputStream fos = null;
+		try
+		{
+			fos = new FileOutputStream(new File("Private.key"));
+                        fos.write(privKey.getBytes());
+			fos.close();
+		}
+		catch(Exception e)
+		{
+			if (fos != null)
+			{
+				try
+				{
+					fos.close();
+				}
+				catch(Exception ex)
+				{}
+			}
+                        return false;
+		}
+                
+                fos = null;
+		try
+		{
+			fos = new FileOutputStream(new File("Public.key"));
+                        fos.write(pubKey.getBytes());
+			fos.close();
+		}
+		catch(Exception e)
+		{
+			if (fos != null)
+			{
+				try
+				{
+					fos.close();
+				}
+				catch(Exception ex)
+				{}
+			}
+                        return false;
+		}
+                return true;
+        }
 	
 	public static String getLibName()
 	{
@@ -150,4 +206,5 @@ public class EciesCryptoPP
 	
 	public static native byte[] decrypt(byte[] key, int keysize, byte[] encdata, int encdatasize);
 	private static native byte[] encrypt(byte[] key, int keysize, byte[] decdata, int decdatasize);
+        private static native String genkeys();
 }
