@@ -1,0 +1,9 @@
+<component name="libraryTable">
+  <library name="RZPacker">
+    <CLASSES>
+      <root url="jar://$PROJECT_DIR$/dist/RZPacker.jar!/" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES />
+  </library>
+</component>
