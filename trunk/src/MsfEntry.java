@@ -23,6 +23,8 @@ public class MsfEntry
     public String fileName;
     
     public byte[] filedata; //used for file rewrites
+
+    public final static byte[] EMPTY_DATA = new byte[0];
     
     public MsfEntry()
     {
@@ -37,6 +39,13 @@ public class MsfEntry
         fileName = filename;
         fileNameb = fileName.getBytes(Charset.forName("EUC-KR"));
         lenName = (short) fileNameb.length;
+    }
+    
+    public void setMrfName(String mrfname)
+    {
+        mrfFileName = mrfname;
+        mrfFileNameb = mrfFileName.getBytes(Charset.forName("EUC-KR"));
+        lenMRFN = (short) mrfFileNameb.length;
     }
     
     public static MsfEntry readEntry(ByteBuffer buf)

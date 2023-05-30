@@ -15,7 +15,7 @@ import org.xerial.snappy.Snappy;
  */
 public class MsfFile
 {
-    public TreeMap<String, TreeMap<Integer, MsfEntry>> fileindex;
+    public TreeMap<String, MrfFile> fileindex = new TreeMap<String, MrfFile>();
 
     public static MsfFile read(String clientdir)
     {
@@ -75,22 +75,17 @@ public class MsfFile
         }
         
         ByteBuffer msf = ByteBuffer.wrap(filemsfdata).order(ByteOrder.LITTLE_ENDIAN);
-        mf.fileindex = new TreeMap<String, TreeMap<Integer, MsfEntry>>();
         while(msf.hasRemaining())
         {
             msf.get();//skeep compress method
             MsfEntry me = MsfEntry.readEntry(msf);
-            TreeMap<Integer, MsfEntry> mrfindex = mf.fileindex.get(me.mrfFileName);
+            MrfFile mrfindex = mf.fileindex.get(me.mrfFileName);
             if (mrfindex == null)
             {
-                mrfindex = new TreeMap<Integer, MsfEntry>();
+                mrfindex = new MrfFile(me.mrfFileName);
                 mf.fileindex.put(me.mrfFileName, mrfindex);
             }
-            MsfEntry tme = mrfindex.put(me.offset, me);
-            if (tme != null)
-            {
-                System.out.println("Error entrys has same position: " + tme.fileName + " " + me.fileName);
-            }
+            mrfindex.addFile(me);
         }
         return mf;
     }
@@ -103,11 +98,11 @@ public class MsfFile
 
         for (String mrfname: fileindex.keySet())
         {
-            TreeMap<Integer, MsfEntry> mrfindex = fileindex.get(mrfname);
-            for (Integer offset: mrfindex.keySet())
+            MrfFile mrfindex = fileindex.get(mrfname);
+            for (Integer offset: mrfindex.getFiles().keySet())
             {
                 msf.put((byte)0);
-                mrfindex.get(offset).writeEntry(msf);
+                mrfindex.getFiles().get(offset).writeEntry(msf);
             }
         }
 
@@ -167,8 +162,8 @@ public class MsfFile
         if (fileindex == null)
             return 0;
         int size = 0;
-        for (TreeMap<Integer, MsfEntry> mrfindex: fileindex.values())
-            for (MsfEntry me: mrfindex.values())
+        for (MrfFile mrfindex: fileindex.values())
+            for (MsfEntry me: mrfindex.getFiles().values())
                 size += 1 + me.getSize();
         return size;
     }

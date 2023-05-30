@@ -133,7 +133,9 @@ public class EciesCryptoPP
                     fis.close();
                 }
                 catch(Exception ex)
-                {}
+                {
+                    ex.printStackTrace();
+                }
             }
         }
     }

@@ -67,8 +67,8 @@ public class PatchBuilder
                     ArrayList<String> oldfiles = new ArrayList<String>();
                     ArrayList<String> tnewfiles = new ArrayList<String>();
                     ArrayList<String> toldfiles = new ArrayList<String>();
-                    TreeMap<Integer, MsfEntry> melnew = mfnew.fileindex.get(mrfname);
-                    TreeMap<Integer, MsfEntry> melold = mfold.fileindex.get(mrfname);
+                    TreeMap<Integer, MsfEntry> melnew = mfnew.fileindex.get(mrfname).getFiles();
+                    TreeMap<Integer, MsfEntry> melold = mfold.fileindex.containsKey(mrfname) ? mfold.fileindex.get(mrfname).getFiles() : null;
                     for (Integer offset: melnew.keySet())
                     {
                         newfiles.add(melnew.get(offset).fileName);

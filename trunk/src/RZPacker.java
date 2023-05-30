@@ -76,7 +76,16 @@ public class RZPacker
         }
         else if (args.length == 3)
         {
-            if (args[0].equalsIgnoreCase("-replace"))
+            if (args[0].equalsIgnoreCase("-pack"))
+            {
+                File f = new File(args[1]);
+                File f2 = new File(args[2]);
+                if (f.exists() && f.isDirectory() && f.exists() && f.isDirectory())
+                    pack(f.getAbsolutePath().replace("\\", "/"), f2.getAbsolutePath().replace("\\", "/"));
+                else
+                    showconfigs = true;
+            }
+            else if (args[0].equalsIgnoreCase("-replace"))
             {
                 File f = new File(args[1]);
                 File f2 = new File(args[2]);
@@ -127,6 +136,9 @@ public class RZPacker
         if (showconfigs)
         {
             System.out.println("USAGE:");
+            System.out.println("-- pack data, clientdir - where is packed files will save, filesdir - where is dir Data present with files");
+            System.out.println("-pack [clientdir] [filesdir]");
+            System.out.println();
             System.out.println("-- replace data, clientdir - where is fileindex present, filesdir - where is dir Data present with new files");
             System.out.println("-replace [clientdir] [filesdir]");
             System.out.println();
@@ -155,7 +167,135 @@ public class RZPacker
             System.out.println("-genkeys");
         }
     }
-    
+
+    public static void pack(String clientdir, String filesdir)
+    {
+        MsfFile mf = new MsfFile();
+
+        System.out.println("Loading files...");
+        ArrayList<String> files = new ArrayList<String>();
+        FileUtils.parsedir(files, filesdir, filesdir + "/");
+        System.out.println("Done.");
+
+        new File(clientdir + "/Data/").mkdirs();
+        System.out.println("Process pack...");
+        ArrayList<String> filesf = new ArrayList<String>();
+        TreeMap<String, TreeMap<String, String>> mrfreplace = new TreeMap<String, TreeMap<String, String>>();
+
+        System.out.println("Process adding...");
+        mrfreplace = new TreeMap<String, TreeMap<String, String>>();
+        //settting marks for mrf files
+        for (String file: files)
+        {
+            String filemrf = file.substring(0, file.indexOf("/", file.indexOf("/") + 1));
+            String filename = file.substring(file.indexOf("/", file.indexOf("/") + 1) + 1);
+            String mrfnametemp = "";
+            for (String mrfname: mf.fileindex.keySet())
+            {
+                if (mrfname.startsWith(filemrf))
+                    mrfnametemp = mrfname;
+            }
+            if (mrfnametemp.length() == 0)
+                mrfnametemp = filemrf + ".mrf";
+            TreeMap<String, String> fls = mrfreplace.get(mrfnametemp);
+            if (fls == null)
+            {
+                fls = new TreeMap<String, String>();
+                mrfreplace.put(mrfnametemp, fls);
+            }
+            fls.put(filename, file);
+        }
+
+        if (mrfreplace.isEmpty())
+        {
+            System.out.println("No one file found to add");
+        }
+        else
+        {
+            System.out.println("Files will be add:");
+            for (String mrfname: mrfreplace.keySet())
+            {
+                System.out.println(mrfname);
+                TreeMap<String, String> fls = mrfreplace.get(mrfname);
+                for (String rpfile: fls.keySet())
+                    System.out.println("  "+rpfile);
+            }
+
+            for (String mrfname: mrfreplace.keySet())
+            {
+                System.out.println("Write " + mrfname + "...");
+                TreeMap<String, String> fls = mrfreplace.get(mrfname);
+
+                if (!mf.fileindex.containsKey(mrfname))
+                    mf.fileindex.put(mrfname, new MrfFile(mrfname));
+
+                MrfFile mrfindex = mf.fileindex.get(mrfname);
+                int offsetmax = 0;
+                for (MsfEntry me: mrfindex.getFiles().values())
+                {
+                    if (me.filedata == null)
+                    {
+                        me.filedata = me.getOriginalFileData(clientdir);
+                        if (offsetmax < me.offset)
+                            offsetmax = me.offset;
+                    }
+                }
+                for (String rpfile: fls.keySet())
+                {
+                    offsetmax++;
+                    MsfEntry me = new MsfEntry(mrfname, rpfile);
+                    me.filedata = me.putFileData(filesdir + "/" + fls.get(rpfile));
+
+                    if (mrfindex.getSize() + me.zsize < 200*1024*1024)
+                    {
+                        me.offset = offsetmax;
+                        mrfindex.addFile(me);
+                    }
+                    else
+                    {
+                        System.out.println("Done.");
+                        System.out.println("Save " + mrfname + "...");
+                        mrfindex.save(clientdir);
+                        System.out.println("Done.");
+
+                        String newmrf = mrfname.substring(0, mrfname.lastIndexOf("."));
+                        int newnumber = 1;
+                        if (!mrfname.endsWith(".mrf"))
+                        {
+                            newnumber = Integer.parseInt(mrfname.substring(mrfname.indexOf(".")+1))+1;
+                        }
+                        newmrf = newmrf + String.format(".%03d", newnumber);
+
+                        mrfname = newmrf;
+                        System.out.println("moved to " + mrfname);
+
+                        System.out.println("Write " + mrfname + "...");
+                        mf.fileindex.put(mrfname, new MrfFile(mrfname));
+                        mrfindex = mf.fileindex.get(mrfname);
+                        offsetmax = 0;
+
+                        me.setMrfName(mrfname);
+                        me.offset = offsetmax;
+                        mrfindex.addFile(me);
+                    }
+                }
+
+                System.out.println("Done.");
+                System.out.println("Save " + mrfname + "...");
+                mrfindex.save(clientdir);
+                System.out.println("Done.");
+            }
+        }
+
+        System.out.println("Saving fileindex...");
+        if (!mf.save(clientdir))
+        {
+            System.out.println("Fileindex save error!");
+            return;
+        }
+        System.out.println("Done.");
+    }
+
     public static void replace(String clientdir, String filesdir)
     {
         System.out.println("Loading fileindex...");
@@ -185,7 +325,7 @@ public class RZPacker
                 boolean founded = false;
                 if (mrfname.startsWith(filemrf))
                 {
-                    TreeMap<Integer, MsfEntry> mrfindex = mf.fileindex.get(mrfname);
+                    TreeMap<Integer, MsfEntry> mrfindex = mf.fileindex.get(mrfname).getFiles();
                     for (MsfEntry me: mrfindex.values())
                     {
                         if (me.fileName.equalsIgnoreCase(filename))
@@ -234,8 +374,8 @@ public class RZPacker
             {
                 System.out.println("Read " + mrfname + "...");
                 TreeMap<String, String> fls = mrfreplace.get(mrfname);
-                TreeMap<Integer, MsfEntry> mrfindex = mf.fileindex.get(mrfname);
-                for (MsfEntry me: mrfindex.values())
+                MrfFile mrfindex = mf.fileindex.get(mrfname);
+                for (MsfEntry me: mrfindex.getFiles().values())
                 {
                     if (me.filedata == null)
                     {
@@ -254,34 +394,7 @@ public class RZPacker
                 }
                 System.out.println("Done.");
                 System.out.println("Write " + mrfname + "...");
-                File f = new File(clientdir + "/" + mrfname);
-                FileOutputStream fos = null;
-                try
-                {
-                    fos = new FileOutputStream(f);
-                    for (Integer offset: mrfindex.keySet())
-                    {
-                        MsfEntry me = mrfindex.get(offset);
-                        me.offset = (int) fos.getChannel().position();
-                        fos.write(me.filedata);
-                        me.filedata = null;
-                    }
-                }
-                catch(Exception e)
-                {
-                    e.printStackTrace();
-                }
-                finally
-                {
-                    if (fos != null)
-                        try
-                        {
-                            fos.close();
-                        }
-                        catch(Exception e)
-                        {
-                        }
-                }
+                mrfindex.save(clientdir);
                 System.out.println("Done.");
             }
         }
@@ -293,20 +406,33 @@ public class RZPacker
         {
             String filemrf = file.substring(0, file.indexOf("/", file.indexOf("/") + 1));
             String filename = file.substring(file.indexOf("/", file.indexOf("/") + 1) + 1);
+            String mrfnametemp = "";
+            int maxmrfnum = 0;
             for (String mrfname: mf.fileindex.keySet())
             {
                 if (mrfname.startsWith(filemrf))
                 {
-                    TreeMap<String, String> fls = mrfreplace.get(mrfname);
-                    if (fls == null)
+                    int newnumber = 0;
+                    if (!mrfname.endsWith(".mrf"))
                     {
-                        fls = new TreeMap<String, String>();
-                        mrfreplace.put(mrfname, fls);
+                        newnumber = Integer.parseInt(mrfname.substring(mrfname.indexOf(".")+1));
                     }
-                    fls.put(filename, file);
-                    break;
+                    if (maxmrfnum < newnumber)
+                    {
+                        maxmrfnum = newnumber;
+                        mrfnametemp = filemrf + String.format(".%03d", newnumber);
+                    }
                 }
             }
+            if (mrfnametemp.length() == 0)
+                mrfnametemp = filemrf + ".mrf";
+            TreeMap<String, String> fls = mrfreplace.get(mrfnametemp);
+            if (fls == null)
+            {
+                fls = new TreeMap<String, String>();
+                mrfreplace.put(mrfnametemp, fls);
+            }
+            fls.put(filename, file);
         }
 
         if (mrfreplace.isEmpty())
@@ -326,11 +452,15 @@ public class RZPacker
 
             for (String mrfname: mrfreplace.keySet())
             {
-                System.out.println("Read " + mrfname + "...");
+                System.out.println("Write " + mrfname + "...");
                 TreeMap<String, String> fls = mrfreplace.get(mrfname);
-                TreeMap<Integer, MsfEntry> mrfindex = mf.fileindex.get(mrfname);
+                
+                if (!mf.fileindex.containsKey(mrfname))
+                    mf.fileindex.put(mrfname, new MrfFile(mrfname));
+                
+                MrfFile mrfindex = mf.fileindex.get(mrfname);
                 int offsetmax = 0;
-                for (MsfEntry me: mrfindex.values())
+                for (MsfEntry me: mrfindex.getFiles().values())
                 {
                     if (me.filedata == null)
                     {
@@ -344,39 +474,43 @@ public class RZPacker
                     offsetmax++;
                     MsfEntry me = new MsfEntry(mrfname, rpfile);
                     me.filedata = me.putFileData(filesdir + "/" + fls.get(rpfile));
-                    mrfindex.put(offsetmax, me);
-                }
-
-                System.out.println("Done.");
-                System.out.println("Write " + mrfname + "...");
-                File f = new File(clientdir + "/" + mrfname);
-                FileOutputStream fos = null;
-                try
-                {
-                    fos = new FileOutputStream(f);
-                    for (Integer offset: mrfindex.keySet())
+                    if (mrfindex.getSize() + me.zsize < 200*1024*1024)
                     {
-                        MsfEntry me = mrfindex.get(offset);
-                        me.offset = (int) fos.getChannel().position();
-                        fos.write(me.filedata);
-                        me.filedata = null;
+                        me.offset = offsetmax;
+                        mrfindex.addFile(me);
+                    }
+                    else
+                    {
+                        System.out.println("Done.");
+                        System.out.println("Save " + mrfname + "...");
+                        mrfindex.save(clientdir);
+                        System.out.println("Done.");
+
+                        String newmrf = mrfname.substring(0, mrfname.lastIndexOf("."));
+                        int newnumber = 1;
+                        if (!mrfname.endsWith(".mrf"))
+                        {
+                            newnumber = Integer.parseInt(mrfname.substring(mrfname.indexOf(".")+1))+1;
+                        }
+                        newmrf = newmrf + String.format(".%03d", newnumber);
+
+                        mrfname = newmrf;
+                        System.out.println("moved to " + mrfname);
+
+                        System.out.println("Write " + mrfname + "...");
+                        mf.fileindex.put(mrfname, new MrfFile(mrfname));
+                        mrfindex = mf.fileindex.get(mrfname);
+                        offsetmax = 0;
+
+                        me.setMrfName(mrfname);
+                        me.offset = offsetmax;
+                        mrfindex.addFile(me);
                     }
                 }
-                catch(Exception e)
-                {
-                    e.printStackTrace();
-                }
-                finally
-                {
-                    if (fos != null)
-                        try
-                        {
-                            fos.close();
-                        }
-                        catch(Exception e)
-                        {
-                        }
-                }
+                
+                System.out.println("Done.");
+                System.out.println("Save " + mrfname + "...");
+                mrfindex.save(clientdir);
                 System.out.println("Done.");
             }
         }
@@ -389,7 +523,7 @@ public class RZPacker
         }
         System.out.println("Done.");
     }
-
+    
     public static void unpack(String clientdir, String outdir)
     {
         File f = new File(outdir);
@@ -403,17 +537,17 @@ public class RZPacker
             return;
         }
         System.out.println("Done.");
-
+        
         //calculate filecount
         int count = 0;
-        for (TreeMap<Integer, MsfEntry> mrfindex: mf.fileindex.values())
-            count += mrfindex.size();
+        for (MrfFile mrfindex: mf.fileindex.values())
+            count += mrfindex.getCount();
         System.out.println("Unpacking " + count + " files...");
         int curcount = 0;
         for (String mrfname: mf.fileindex.keySet())
         {
             String mrffolder = outdir + "/" + mrfname.substring(0, mrfname.lastIndexOf("."));
-            TreeMap<Integer, MsfEntry> mrfindex = mf.fileindex.get(mrfname);
+            TreeMap<Integer, MsfEntry> mrfindex = mf.fileindex.get(mrfname).getFiles();
             for (MsfEntry me: mrfindex.values())
             {
                 if (me.fileName.indexOf("/") > 0)
@@ -660,7 +794,7 @@ public class RZPacker
         int count = 0;
         for (String mrfname: mf.fileindex.keySet())
         {
-            TreeMap<Integer, MsfEntry> mrfindex = mf.fileindex.get(mrfname);
+            TreeMap<Integer, MsfEntry> mrfindex = mf.fileindex.get(mrfname).getFiles();
             for (MsfEntry me: mrfindex.values())
             {
                 sb.append(me.mrfFileName).append(" ").append(me.fileName).append(" ").append(me.size).append(" ").append(me.xorkey).append("\r\n");
