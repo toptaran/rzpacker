@@ -29,7 +29,7 @@ JNIEXPORT jbyteArray JNICALL Java_EciesCryptoPP_encrypt
  * Signature: ()Ljava/lang/String;
  */
 JNIEXPORT jstring JNICALL Java_EciesCryptoPP_genkeys
-  (JNIEnv *, jclass);
+  (JNIEnv *, jclass, jint);
 
 #ifdef __cplusplus
 }

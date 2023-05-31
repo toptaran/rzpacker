@@ -59,13 +59,13 @@ JNIEXPORT jbyteArray JNICALL Java_EciesCryptoPP_encrypt (JNIEnv *env, jclass thi
 	return ret;
 }
 
-JNIEXPORT jstring JNICALL Java_EciesCryptoPP_genkeys (JNIEnv *env, jclass thisObj) {
+JNIEXPORT jstring JNICALL Java_EciesCryptoPP_genkeys (JNIEnv *env, jclass thisObj, jint keysize) {
 	string privkey, pubkey;
 	HexEncoder privhex(new StringSink(privkey));
 	HexEncoder pubhex(new StringSink(pubkey));
 
 	AutoSeededRandomPool rng;
-	ECIES<ECP>::Decryptor decryptor(rng, ASN1::brainpoolP160r1());
+	ECIES<ECP>::Decryptor decryptor(rng, keysize == 160 ? ASN1::brainpoolP160r1() : ASN1::brainpoolP512r1());
 	ECIES<ECP>::Encryptor encryptor(decryptor);
 
 	encryptor.GetKey().Save(privhex);
