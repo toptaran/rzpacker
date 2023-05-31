@@ -8,6 +8,8 @@ import java.io.FileOutputStream;
  */
 public class EciesCryptoPP
 {
+    public static final int VER_2012_KEY_SIZE = 160;
+    public static final int VER_2014_KEY_SIZE = 512;
     public static byte[] privateKey;
     public static byte[] publicKey;
     public static byte[] PWEKey;
@@ -51,7 +53,7 @@ public class EciesCryptoPP
 
     public static String generateKeys()
     {
-        return genkeys();
+        return genkeys(VER_2012_KEY_SIZE);
     }
 
     public static boolean generateAndSaveKeys()
@@ -208,5 +210,5 @@ public class EciesCryptoPP
     
     public static native byte[] decrypt(byte[] key, int keysize, byte[] encdata, int encdatasize);
     private static native byte[] encrypt(byte[] key, int keysize, byte[] decdata, int decdatasize);
-    private static native String genkeys();
+    private static native String genkeys(int keysize);
 }
