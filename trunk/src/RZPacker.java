@@ -1,6 +1,7 @@
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
+import java.io.RandomAccessFile;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.TreeMap;
@@ -13,12 +14,28 @@ public class RZPacker
 {
     public static void main (String[] args)
     {
+        System.out.println("RZPacker ver 2.0");
+
+        int version = 1;
+        ArrayList<String> newargs = new ArrayList<String>();
+        for(String str: args) {
+            if (str.equalsIgnoreCase("-ver1")) {
+                version = 1;
+            } else if (str.equalsIgnoreCase("-ver2")) {
+                version = 2;
+            } else {
+                newargs.add(str);
+            }
+        }
+        args = new String[newargs.size()];
+        newargs.toArray(args);
+
         boolean showconfigs = false;
         if (args.length == 0)
         {
             File f = new File("fileindex.msf");
             if (f.exists())
-                unpack(".", "./unpacked");
+                unpack(".", "./unpacked", version);
             else
                 showconfigs = true;
         }
@@ -26,7 +43,7 @@ public class RZPacker
         {
             if (args[0].equalsIgnoreCase("-genkeys"))
             {
-                generateKeys();
+                generateKeys(version);
             }
             else
                 showconfigs = true;
@@ -37,7 +54,7 @@ public class RZPacker
             {
                 File f = new File(args[1]);
                 if (f.exists() && f.isDirectory())
-                    patchClient(f.getAbsolutePath().replace("\\", "/"));
+                    patchClient(f.getAbsolutePath().replace("\\", "/"), version);
                 else
                     showconfigs = true;
             }
@@ -45,7 +62,7 @@ public class RZPacker
             {
                 File f = new File(args[1]);
                 if (f.exists() && f.isDirectory())
-                    listFiles(f.getAbsolutePath().replace("\\", "/"));
+                    listFiles(f.getAbsolutePath().replace("\\", "/"), version);
                 else
                     showconfigs = true;
             }
@@ -81,7 +98,7 @@ public class RZPacker
                 File f = new File(args[1]);
                 File f2 = new File(args[2]);
                 if (f.exists() && f.isDirectory() && f.exists() && f.isDirectory())
-                    pack(f.getAbsolutePath().replace("\\", "/"), f2.getAbsolutePath().replace("\\", "/"));
+                    pack(f.getAbsolutePath().replace("\\", "/"), f2.getAbsolutePath().replace("\\", "/"), version);
                 else
                     showconfigs = true;
             }
@@ -90,7 +107,7 @@ public class RZPacker
                 File f = new File(args[1]);
                 File f2 = new File(args[2]);
                 if (f.exists() && f.isDirectory() && f.exists() && f.isDirectory())
-                    replace(f.getAbsolutePath().replace("\\", "/"), f2.getAbsolutePath().replace("\\", "/"));
+                    replace(f.getAbsolutePath().replace("\\", "/"), f2.getAbsolutePath().replace("\\", "/"), version);
                 else
                     showconfigs = true;
             }
@@ -99,7 +116,7 @@ public class RZPacker
                 File f = new File(args[1]);
                 File f2 = new File(args[2]);
                 if (f.exists() && f.isDirectory() && (!f.exists() || f.isDirectory()))
-                    unpack(f.getAbsolutePath().replace("\\", "/"), f2.getAbsolutePath().replace("\\", "/"));
+                    unpack(f.getAbsolutePath().replace("\\", "/"), f2.getAbsolutePath().replace("\\", "/"), version);
                 else
                     showconfigs = true;
             }
@@ -108,7 +125,7 @@ public class RZPacker
                 File f = new File(args[1]);
                 File f2 = new File(args[2]);
                 if (f.exists() && f.isDirectory() && (!f.exists() || f.isDirectory()))
-                    PatchBuilder.makePatch(f.getAbsolutePath().replace("\\", "/"), f2.getAbsolutePath().replace("\\", "/"));
+                    PatchBuilder.makePatch(f.getAbsolutePath().replace("\\", "/"), f2.getAbsolutePath().replace("\\", "/"), version);
                 else
                     showconfigs = true;
             }
@@ -130,12 +147,23 @@ public class RZPacker
                 else
                     showconfigs = true;
             }
+            else if (args[0].equalsIgnoreCase("-unpackpwever2"))
+            {
+                File f = new File(args[1]);
+                File f2 = new File(args[2]);
+                if (f.exists() && f.isDirectory() && (!f.exists() || f.isDirectory()))
+                    unpackPWEVer2(f.getAbsolutePath().replace("\\", "/"), f2.getAbsolutePath().replace("\\", "/"));
+                else
+                    showconfigs = true;
+            }
             else
                 showconfigs = true;
         }
         if (showconfigs)
         {
             System.out.println("USAGE:");
+            System.out.println("-- version select -ver1 or -ver2(2014 year), can be added at any place, default ver1");
+            System.out.println();
             System.out.println("-- pack data, clientdir - where is packed files will save, filesdir - where is dir Data present with files");
             System.out.println("-pack [clientdir] [filesdir]");
             System.out.println();
@@ -168,9 +196,9 @@ public class RZPacker
         }
     }
 
-    public static void pack(String clientdir, String filesdir)
+    public static void pack(String clientdir, String filesdir, int version)
     {
-        MsfFile mf = new MsfFile();
+        MsfFile mf = new MsfFile(version);
 
         System.out.println("Loading files...");
         ArrayList<String> files = new ArrayList<String>();
@@ -187,8 +215,21 @@ public class RZPacker
         //settting marks for mrf files
         for (String file: files)
         {
-            String filemrf = file.substring(0, file.indexOf("/", file.indexOf("/") + 1));
-            String filename = file.substring(file.indexOf("/", file.indexOf("/") + 1) + 1);
+            String filemrf = "";
+            String filename = "";
+            if (version == 1) {
+                filemrf = file.substring(0, file.indexOf("/", file.indexOf("/") + 1));
+                filename = file.substring(file.indexOf("/", file.indexOf("/") + 1) + 1);
+            } else if (version == 2) {
+                if (file.toLowerCase().startsWith("data/")) {
+                    filemrf = file.substring(0, file.indexOf("/", file.indexOf("/") + 1));
+                } else {
+                    filemrf = "Data/" + file.substring(0, file.indexOf("/"));
+                }
+                filemrf = filemrf.replace("/", "\\");
+                filename = file.replace("/", "\\");
+            }
+
             String mrfnametemp = "";
             for (String mrfname: mf.fileindex.keySet())
             {
@@ -243,7 +284,7 @@ public class RZPacker
                 for (String rpfile: fls.keySet())
                 {
                     offsetmax++;
-                    MsfEntry me = new MsfEntry(mrfname, rpfile);
+                    MsfEntry me = new MsfEntry(mrfname, rpfile, version);
                     me.filedata = me.putFileData(filesdir + "/" + fls.get(rpfile));
 
                     if (mrfindex.getSize() + me.zsize < 200*1024*1024)
@@ -296,10 +337,10 @@ public class RZPacker
         System.out.println("Done.");
     }
 
-    public static void replace(String clientdir, String filesdir)
+    public static void replace(String clientdir, String filesdir, int version)
     {
         System.out.println("Loading fileindex...");
-        MsfFile mf = MsfFile.read(clientdir);
+        MsfFile mf = MsfFile.read(clientdir, version);
         if (mf == null)
         {
             System.out.println("Fileindex read/parse error!");
@@ -318,8 +359,20 @@ public class RZPacker
         //settting marks for mrf files
         for (String file: files)
         {
-            String filemrf = file.substring(0, file.indexOf("/", file.indexOf("/") + 1));
-            String filename = file.substring(file.indexOf("/", file.indexOf("/") + 1) + 1);
+            String filemrf = "";
+            String filename = "";
+            if (version == 1) {
+                filemrf = file.substring(0, file.indexOf("/", file.indexOf("/") + 1));
+                filename = file.substring(file.indexOf("/", file.indexOf("/") + 1) + 1);
+            } else if (version == 2) {
+                if (file.toLowerCase().startsWith("data/")) {
+                    filemrf = file.substring(0, file.indexOf("/", file.indexOf("/") + 1));
+                } else {
+                    filemrf = "Data/" + file.substring(0, file.indexOf("/"));
+                }
+                filemrf = filemrf.replace("/", "\\");
+                filename = file.replace("/", "\\");
+            }
             for (String mrfname: mf.fileindex.keySet())
             {
                 boolean founded = false;
@@ -404,8 +457,20 @@ public class RZPacker
         //settting marks for mrf files
         for (String file: files)
         {
-            String filemrf = file.substring(0, file.indexOf("/", file.indexOf("/") + 1));
-            String filename = file.substring(file.indexOf("/", file.indexOf("/") + 1) + 1);
+            String filemrf = "";
+            String filename = "";
+            if (version == 1) {
+                filemrf = file.substring(0, file.indexOf("/", file.indexOf("/") + 1));
+                filename = file.substring(file.indexOf("/", file.indexOf("/") + 1) + 1);
+            } else if (version == 2) {
+                if (file.toLowerCase().startsWith("data/")) {
+                    filemrf = file.substring(0, file.indexOf("/", file.indexOf("/") + 1));
+                } else {
+                    filemrf = "Data/" + file.substring(0, file.indexOf("/"));
+                }
+                filemrf = filemrf.replace("/", "\\");
+                filename = file.replace("/", "\\");
+            }
             String mrfnametemp = "";
             int maxmrfnum = 0;
             for (String mrfname: mf.fileindex.keySet())
@@ -472,7 +537,7 @@ public class RZPacker
                 for (String rpfile: fls.keySet())
                 {
                     offsetmax++;
-                    MsfEntry me = new MsfEntry(mrfname, rpfile);
+                    MsfEntry me = new MsfEntry(mrfname, rpfile, version);
                     me.filedata = me.putFileData(filesdir + "/" + fls.get(rpfile));
                     if (mrfindex.getSize() + me.zsize < 200*1024*1024)
                     {
@@ -524,13 +589,13 @@ public class RZPacker
         System.out.println("Done.");
     }
     
-    public static void unpack(String clientdir, String outdir)
+    public static void unpack(String clientdir, String outdir, int version)
     {
         File f = new File(outdir);
         if (!f.exists())
             f.mkdirs();
         System.out.println("Loading fileindex...");
-        MsfFile mf = MsfFile.read(clientdir);
+        MsfFile mf = MsfFile.read(clientdir, version);
         if (mf == null)
         {
             System.out.println("Fileindex read/parse error!");
@@ -546,15 +611,19 @@ public class RZPacker
         int curcount = 0;
         for (String mrfname: mf.fileindex.keySet())
         {
-            String mrffolder = outdir + "/" + mrfname.substring(0, mrfname.lastIndexOf("."));
+            String mrffolder = outdir;
+            if (version == 1) {
+                mrffolder += "/" + mrfname.substring(0, mrfname.lastIndexOf("."));
+            }
             TreeMap<Integer, MsfEntry> mrfindex = mf.fileindex.get(mrfname).getFiles();
             for (MsfEntry me: mrfindex.values())
             {
-                if (me.fileName.indexOf("/") > 0)
-                    new File(mrffolder + "/" + me.fileName.substring(0, me.fileName.lastIndexOf("/"))).mkdirs();
+                String fname = me.fileName.replace("\\", "/");
+                if (fname.indexOf("/") > 0)
+                    new File(mrffolder + "/" + fname.substring(0, fname.lastIndexOf("/"))).mkdirs();
                 else
                     new File(mrffolder + "/").mkdirs();
-                File file = new File(mrffolder + "/" + me.fileName);
+                File file = new File(mrffolder + "/" + fname);
                 FileOutputStream fos = null;
                 try
                 {
@@ -587,27 +656,76 @@ public class RZPacker
     public static void unpackPWE(String clientdir, String outdir)
     {
         EciesCryptoPP.privateKey = EciesCryptoPP.PWEKey;
-        unpack(clientdir, outdir);
+        unpack(clientdir, outdir, 1);
     }
     
     public static void unpackPmang(String clientdir, String outdir)
     {
         EciesCryptoPP.privateKey = EciesCryptoPP.PmangKey;
-        unpack(clientdir, outdir);
+        unpack(clientdir, outdir, 1);
+    }
+
+    public static void unpackPWEVer2(String clientdir, String outdir)
+    {
+        EciesCryptoPP.privateKey = EciesCryptoPP.NAKeyMethod2;
+        unpack(clientdir, outdir, 2);
     }
     
-    public static void patchClient(String clientdir)
+    public static void patchClient(String clientdir, int version)
     {
-        changeEncription(clientdir + "/" + "buildver.mvf", EciesCryptoPP.PWEKeyBuildver);
-        changeEncription(clientdir + "/" + "fileindex.msf", EciesCryptoPP.PWEKey);
-        changeEncription(clientdir + "/" + "RaiderZ Launcher.dat", EciesCryptoPP.PWEKeyUpdaterConf);
-        changeEncription(clientdir + "/" + "recovery.dat", EciesCryptoPP.PWEKeyUpdaterConf);
-        
-        replaceKey(clientdir + "/" + "Raiderz.exe", EciesCryptoPP.PWEKey, EciesCryptoPP.privateKey);
-        
-        replaceKey(clientdir + "/" + "Raiderz Launcher.exe", EciesCryptoPP.PWEKeyUpdaterConf, EciesCryptoPP.privateKey);
-        replaceKey(clientdir + "/" + "recovery.exe", EciesCryptoPP.PWEKeyUpdaterConf, EciesCryptoPP.privateKey);
-        
+        changeEncryption(clientdir + "/" + "buildver.mvf", EciesCryptoPP.PWEKeyBuildver, EciesCryptoPP.publicKey, version);
+        if (version == 1) {
+            changeEncryption(clientdir + "/" + "fileindex.msf", EciesCryptoPP.PWEKey, EciesCryptoPP.publicKey, version);
+            changeEncryption(clientdir + "/" + "RaiderZ Launcher.dat", EciesCryptoPP.PWEKeyUpdaterConf, EciesCryptoPP.publicKey, version);
+            changeEncryption(clientdir + "/" + "recovery.dat", EciesCryptoPP.PWEKeyUpdaterConf, EciesCryptoPP.publicKey, version);
+
+            replaceKey(clientdir + "/" + "Raiderz.exe", EciesCryptoPP.PWEKey, EciesCryptoPP.privateKey);
+
+            replaceKey(clientdir + "/" + "Raiderz Launcher.exe", EciesCryptoPP.PWEKeyUpdaterConf, EciesCryptoPP.privateKey);
+            replaceKey(clientdir + "/" + "recovery.exe", EciesCryptoPP.PWEKeyUpdaterConf, EciesCryptoPP.privateKey);
+        } else if (version == 2) {
+            changeEncryption(clientdir + "/" + "fileindex.msf", EciesCryptoPP.NAKeyMethod2, EciesCryptoPP.publicKeyVer2, version);
+            changeEncryption(clientdir + "/" + "RaiderZ Launcher.dat", EciesCryptoPP.NAKeyMethod2UpdaterConf, EciesCryptoPP.publicKey, version);
+            changeEncryption(clientdir + "/" + "recovery.dat", EciesCryptoPP.NAKeyMethod2UpdaterConf, EciesCryptoPP.publicKey, version);
+
+            replaceKey(clientdir + "/" + "Raiderz Launcher.exe", EciesCryptoPP.NAKeyMethod2UpdaterConf, EciesCryptoPP.privateKey);
+            replaceKey(clientdir + "/" + "recovery.exe", EciesCryptoPP.NAKeyMethod2UpdaterConf, EciesCryptoPP.privateKey);
+
+            System.out.println("Patch Raiderz.exe file...");
+            RandomAccessFile raf = null;
+            try
+            {
+                raf = new RandomAccessFile(clientdir + "/" + "Raiderz.exe", "rw");
+                raf.seek(0x4370);
+                short[] patchShort = new short[]{
+                        0x83, 0xEC, 0x0C, 0xB8, 0x03, 0x02, 0x00, 0x00, 0x8B, 0x54, 0x24, 0x14, 0x89, 0x02, 0xB8, 0x60,
+                        0x10, 0x40, 0x00, 0x8B, 0x54, 0x24, 0x10, 0x89, 0x02, 0xB0, 0x01, 0x83, 0xC4, 0x0C, 0xC3, 0xCC
+                };
+                byte[] patch = new byte[patchShort.length];
+                for (int i = 0; i < patchShort.length; i++)
+                    patch[i] = (byte) patchShort[i];
+                raf.write(patch);
+                raf.seek(0x460);
+                raf.write(EciesCryptoPP.privateKeyVer2);
+            }
+            catch(Exception e)
+            {
+                e.printStackTrace();
+            }
+            finally
+            {
+                if (raf != null)
+                    try
+                    {
+                        raf.close();
+                    }
+                    catch(Exception e)
+                    {
+                    }
+            }
+            System.out.println("Done.");
+        }
+
         replaceKey(clientdir + "/" + "Raiderz Launcher.exe", EciesCryptoPP.PWEKeyBuildver, EciesCryptoPP.privateKey);
         replaceKey(clientdir + "/" + "recovery.exe", EciesCryptoPP.PWEKeyBuildver, EciesCryptoPP.privateKey);
         
@@ -615,7 +733,7 @@ public class RZPacker
         replaceKey(clientdir + "/" + "recovery.exe", EciesCryptoPP.PWEKeyFileHash, EciesCryptoPP.privateKey);
     }
     
-    public static boolean changeEncription(String file, byte[] oldkey)
+    public static boolean changeEncryption(String file, byte[] oldKey, byte[] newKey, int version)
     {
         File f = new File(file);
         if (!f.exists())
@@ -627,6 +745,9 @@ public class RZPacker
             try
             {
                 fis = new FileInputStream(f);
+                if (version == 2 && file.endsWith("fileindex.msf")) {
+                    fis.skip(3);//skip trash
+                }
                 data = new byte[fis.available()];
                 fis.read(data);
             }
@@ -651,9 +772,9 @@ public class RZPacker
             if (allisok)
             {
                 System.out.println("Decrypt...");
-                data = EciesCryptoPP.decrypt(oldkey, oldkey.length, data, data.length);
+                data = EciesCryptoPP.decrypt(oldKey, oldKey.length, data, data.length);
                 System.out.println("Encrypt...");
-                data = EciesCryptoPP.encrypt(data);
+                data = EciesCryptoPP.encrypt(newKey, newKey.length, data, data.length);
             }
 
             System.out.println("Save file...");
@@ -661,6 +782,11 @@ public class RZPacker
             try
             {
                 fos = new FileOutputStream(f);
+                if (version == 2 && file.endsWith("fileindex.msf")) {
+                    fos.write(0);//write trash
+                    fos.write(0);//write trash
+                    fos.write(0);//write trash
+                }
                 fos.write(data);
             }
             catch(Exception e)
@@ -778,10 +904,10 @@ public class RZPacker
             return true;
     }
     
-    public static void listFiles(String clientdir)
+    public static void listFiles(String clientdir, int version)
     {
         System.out.println("Loading fileindex...");
-        MsfFile mf = MsfFile.read(clientdir);
+        MsfFile mf = MsfFile.read(clientdir, version);
         if (mf == null)
         {
             System.out.println("Fileindex read/parse error!");
@@ -960,11 +1086,16 @@ public class RZPacker
             return true;
     }
         
-    public static void generateKeys()
+    public static void generateKeys(int version)
     {
-        if (EciesCryptoPP.generateAndSaveKeys())
-            System.out.println("Keys successfully generated and saved!");
-        else
+        if (EciesCryptoPP.generateAndSaveKeys(1)) {
+            if (version == 1 || (version == 2 && EciesCryptoPP.generateAndSaveKeys(2))) {
+                System.out.println("Keys successfully generated and saved!");
+            } else {
+                System.out.println("Ver2 save error!");
+            }
+        } else {
             System.out.println("Save error!");
+        }
     }
 }

@@ -1,0 +1,13 @@
+<component name="ArtifactManager">
+  <artifact build-on-make="true" name="RZPacker:jar">
+    <output-path>$PROJECT_DIR$/out/artifacts/RZPacker_jar</output-path>
+    <root id="root">
+      <element id="archive" name="RZPacker.jar">
+        <element id="module-output" name="RZPacker" />
+      </element>
+      <element id="directory" name="lib">
+        <element id="library" level="project" name="snappy-java-1.1.9.1" />
+      </element>
+    </root>
+  </artifact>
+</component>

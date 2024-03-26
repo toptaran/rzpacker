@@ -1,0 +1,4 @@
+Manifest-Version: 1.0
+Main-Class: RZPacker
+Class-Path: lib/snappy-java-1.1.9.1.jar
+

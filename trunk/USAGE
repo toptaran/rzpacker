@@ -1,4 +1,6 @@
 USAGE:
+-- version select -ver1 or -ver2(2014 year), can be added at any place, default ver1
+
 -- replace data, clientdir - where is fileindex present, filesdir - where is dir Data present with new files
 -replace [clientdir] [filesdir]
 

@@ -17,11 +17,11 @@ public class PatchBuilder
 {
     static byte MPATCHHEADER[] = "MAIET PATCH FILE v2.1\0\0\0\0".getBytes();
     
-    public static void makePatch(String newdir, String olddir)
+    public static void makePatch(String newdir, String olddir, int version)
     {
         // first load fileindex
         System.out.println("Loading old fileindex...");
-        MsfFile mfold = MsfFile.read(olddir);
+        MsfFile mfold = MsfFile.read(olddir, version);
         if (mfold == null)
         {
             System.out.println("Old fileindex read/parse error!");
@@ -30,7 +30,7 @@ public class PatchBuilder
         System.out.println("Done.");
         
         System.out.println("Loading new fileindex...");
-        MsfFile mfnew = MsfFile.read(newdir);
+        MsfFile mfnew = MsfFile.read(newdir, version);
         if (mfnew == null)
         {
             System.out.println("New fileindex read/parse error!");

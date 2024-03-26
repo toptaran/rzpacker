@@ -12,17 +12,27 @@ public class EciesCryptoPP
     public static final int VER_2014_KEY_SIZE = 512;
     public static byte[] privateKey;
     public static byte[] publicKey;
+    public static byte[] privateKeyVer1;
+    public static byte[] publicKeyVer1;
+    public static byte[] privateKeyVer2;
+    public static byte[] publicKeyVer2;
     public static byte[] PWEKey;
     public static byte[] PWEKeyUpdaterConf;
     public static byte[] PWEKeyBuildver;
     public static byte[] PWEKeyFileHash;
     public static byte[] PWEKeyLauncherHz;
     public static byte[] PmangKey;
+    public static byte[] NAKeyMethod2;
+    public static byte[] NAKeyMethod2UpdaterConf;
     static
     {
         System.loadLibrary(getLibName());
-        loadPrivateKey();
-        loadPublicKey();
+        privateKeyVer1 = loadPrivateKey("Private.key");
+        publicKeyVer1 = loadPublicKey("Public.key");
+        privateKeyVer2 = loadPrivateKey("PrivateVer2.key");
+        publicKeyVer2 = loadPublicKey("PublicVer2.key");
+        privateKey = privateKeyVer1;
+        publicKey = publicKeyVer1;
         loadPWEKey();
     }
     
@@ -51,22 +61,33 @@ public class EciesCryptoPP
         return encrypt(publicKey, publicKey.length, decdata, decdata.length);
     }
 
-    public static String generateKeys()
+    public static String generateKeys(int version)
     {
-        return genkeys(VER_2012_KEY_SIZE);
+        if (version == 1) {
+            return genkeys(VER_2012_KEY_SIZE);
+        } else if (version == 2) {
+            return genkeys(VER_2014_KEY_SIZE);
+        }
+        return "";
     }
 
-    public static boolean generateAndSaveKeys()
+    public static boolean generateAndSaveKeys(int version)
     {
-        String[] keys = generateKeys().split(";");
+        String[] keys = generateKeys(version).split(";");
         String privKey = keys[1];
         String pubKey = keys[0];
 
+        String privateFileName = "Private.key";
+        String publicFileName = "Public.key";
+        if (version == 2) {
+            privateFileName = "PrivateVer2.key";
+            publicFileName = "PublicVer2.key";
+        }
         FileOutputStream fos = null;
         try
         {
-            fos = new FileOutputStream(new File("Private.key"));
-                fos.write(privKey.getBytes());
+            fos = new FileOutputStream(new File(privateFileName));
+            fos.write(privKey.getBytes());
             fos.close();
         }
         catch(Exception e)
@@ -86,8 +107,8 @@ public class EciesCryptoPP
         fos = null;
         try
         {
-            fos = new FileOutputStream(new File("Public.key"));
-                fos.write(pubKey.getBytes());
+            fos = new FileOutputStream(new File(publicFileName));
+            fos.write(pubKey.getBytes());
             fos.close();
         }
         catch(Exception e)
@@ -113,21 +134,20 @@ public class EciesCryptoPP
         return "EciesCryptoPP";
     }
     
-    private static void loadPrivateKey()
+    private static byte[] loadPrivateKey(String fileName)
     {
         FileInputStream fis = null;
         try
         {
-            fis = new FileInputStream(new File("Private.key"));
+            fis = new FileInputStream(new File(fileName));
             byte[] keystr = new byte[fis.available()];
             fis.read(keystr, 0, fis.available());
             fis.close();
             String key = new String(keystr);
-            privateKey = hexStringToByteArray(key);
+            return hexStringToByteArray(key);
         }
         catch(Exception e)
         {
-            privateKey = new byte[]{};
             if (fis != null)
             {
                 try
@@ -139,24 +159,24 @@ public class EciesCryptoPP
                     ex.printStackTrace();
                 }
             }
+            return new byte[]{};
         }
     }
     
-    private static void loadPublicKey()
+    private static byte[] loadPublicKey(String fileName)
     {
         FileInputStream fis = null;
         try
         {
-            fis = new FileInputStream(new File("Public.key"));
+            fis = new FileInputStream(new File(fileName));
             byte[] keystr = new byte[fis.available()];
             fis.read(keystr, 0, fis.available());
             fis.close();
             String key = new String(keystr);
-            publicKey = hexStringToByteArray(key);
+            return hexStringToByteArray(key);
         }
         catch(Exception e)
         {
-            publicKey = new byte[]{};
             if (fis != null)
             {
                 try
@@ -166,6 +186,7 @@ public class EciesCryptoPP
                 catch(Exception ex)
                 {}
             }
+            return new byte[]{};
         }
     }
     
@@ -194,6 +215,14 @@ public class EciesCryptoPP
         PmangKey = new byte[Keys.Z3_KEY_RAIDERZ_KR.length];
         for (int i = 0; i < Keys.Z3_KEY_RAIDERZ_KR.length; i++)
             PmangKey[i] = (byte) Keys.Z3_KEY_RAIDERZ_KR[i];
+
+        NAKeyMethod2 = new byte[Keys.Z3_KEY_NARAIDERZ_METHOD2.length];
+        for (int i = 0; i < Keys.Z3_KEY_NARAIDERZ_METHOD2.length; i++)
+            NAKeyMethod2[i] = (byte) Keys.Z3_KEY_NARAIDERZ_METHOD2[i];
+
+        NAKeyMethod2UpdaterConf = new byte[Keys.Z3_KEY_NARAIDERZ_METHOD2_UPDATERCONF.length];
+        for (int i = 0; i < Keys.Z3_KEY_NARAIDERZ_METHOD2_UPDATERCONF.length; i++)
+            NAKeyMethod2UpdaterConf[i] = (byte) Keys.Z3_KEY_NARAIDERZ_METHOD2_UPDATERCONF[i];
     }
     
     private static byte[] hexStringToByteArray(String s)
@@ -209,6 +238,6 @@ public class EciesCryptoPP
     }
     
     public static native byte[] decrypt(byte[] key, int keysize, byte[] encdata, int encdatasize);
-    private static native byte[] encrypt(byte[] key, int keysize, byte[] decdata, int decdatasize);
+    public static native byte[] encrypt(byte[] key, int keysize, byte[] decdata, int decdatasize);
     private static native String genkeys(int keysize);
 }

@@ -5,6 +5,8 @@ import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.nio.charset.Charset;
+import java.util.Random;
 import java.util.TreeMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.xerial.snappy.Snappy;
@@ -15,17 +17,32 @@ import org.xerial.snappy.Snappy;
  */
 public class MsfFile
 {
+    public final int version;
+
+    public MsfFile(int version)
+    {
+        this.version = version;
+    }
+
     public TreeMap<String, MrfFile> fileindex = new TreeMap<String, MrfFile>();
 
-    public static MsfFile read(String clientdir)
+    public static MsfFile read(String clientdir, int version)
     {
-        MsfFile mf = new MsfFile();
+        if (version == 1) {
+            EciesCryptoPP.privateKey = EciesCryptoPP.privateKeyVer1;
+        } else if (version == 2) {
+            EciesCryptoPP.privateKey = EciesCryptoPP.privateKeyVer2;
+        }
+        MsfFile mf = new MsfFile(version);
         File f = new File(clientdir + "/" + "fileindex.msf");
         FileInputStream fis = null;
         byte[] filemsfdata = new byte[0];
         try
         {
             fis = new FileInputStream(f);
+            if (version == 2) {
+                fis.skip(3); //skip trash bytes
+            }
             filemsfdata = new byte[fis.available()];
             fis.read(filemsfdata);
         }
@@ -75,10 +92,29 @@ public class MsfFile
         }
         
         ByteBuffer msf = ByteBuffer.wrap(filemsfdata).order(ByteOrder.LITTLE_ENDIAN);
+
+        String[] mrfFileNames = new String[0];
+        if (version == 2) {
+            int mrfFileCount = msf.getShort();
+            mrfFileNames = new String[mrfFileCount];
+            for (int i = 0; i < mrfFileCount; i++) {
+                int mrfFileNameLen = msf.getShort() - 1;
+                byte xorKey = msf.get();
+                byte[] mrfFileNameb = new byte[mrfFileNameLen];
+                msf.get(mrfFileNameb);
+                for (int j = 0; j < mrfFileNameLen; j++) {
+                    mrfFileNameb[j] = (byte) (mrfFileNameb[j] ^ xorKey);
+                }
+                mrfFileNames[i] = new String(mrfFileNameb, Charset.forName("EUC-KR"));
+            }
+        }
+
         while(msf.hasRemaining())
         {
-            msf.get();//skeep compress method
-            MsfEntry me = MsfEntry.readEntry(msf);
+            MsfEntry me = MsfEntry.readEntry(msf, version);
+            if (version == 2) {
+                me.setMrfName(mrfFileNames[me.mrfFileIndex]);
+            }
             MrfFile mrfindex = mf.fileindex.get(me.mrfFileName);
             if (mrfindex == null)
             {
@@ -92,18 +128,46 @@ public class MsfFile
     
     public boolean save(String clientdir)
     {
+        if (version == 1) {
+            EciesCryptoPP.publicKey = EciesCryptoPP.publicKeyVer1;
+        } else if (version == 2) {
+            EciesCryptoPP.publicKey = EciesCryptoPP.publicKeyVer2;
+        }
+
         int msfsize = getSize();
+        if (version == 2) {
+            msfsize += 2;
+            for (String mrfFileName: fileindex.keySet()) {
+                msfsize += 3 + mrfFileName.getBytes(Charset.forName("EUC-KR")).length;
+            }
+        }
 
         ByteBuffer msf = ByteBuffer.wrap(new byte[msfsize]).order(ByteOrder.LITTLE_ENDIAN);
 
+        if (version == 2) {
+            msf.putShort((short) fileindex.size());
+            for (String mrfFileName: fileindex.keySet()) {
+                byte[] mrfFileNameb = mrfFileName.getBytes(Charset.forName("EUC-KR"));
+                msf.putShort((short) (mrfFileNameb.length + 1));
+                byte xorKey = (byte) (new Random().nextInt() & 0xFF);
+                msf.put(xorKey);
+                for(int i = 0; i < mrfFileNameb.length; i++) {
+                    mrfFileNameb[i] = (byte) (mrfFileNameb[i] ^ xorKey);
+                }
+                msf.put(mrfFileNameb);
+            }
+        }
+
+        short index = 0;
         for (String mrfname: fileindex.keySet())
         {
             MrfFile mrfindex = fileindex.get(mrfname);
             for (Integer offset: mrfindex.getFiles().keySet())
             {
-                msf.put((byte)0);
+                mrfindex.getFiles().get(offset).mrfFileIndex = index;
                 mrfindex.getFiles().get(offset).writeEntry(msf);
             }
+            index++;
         }
 
         msf.rewind();
@@ -127,7 +191,7 @@ public class MsfFile
         System.arraycopy(FileUtils.getIntToByte(msfsize), 0, finalmsfdata, 0, 4);
         System.arraycopy(filemsfdata, 0, finalmsfdata, 4, filemsfdata.length);
 
-        //encript msf
+        //encrypt msf
         finalmsfdata = EciesCryptoPP.encrypt(finalmsfdata);
 
         File f = new File(clientdir + "/" + "fileindex.msf");
@@ -135,6 +199,11 @@ public class MsfFile
         try
         {
             fos = new FileOutputStream(f);
+            if (version == 2) {
+                fos.write(0); // write trash bytes
+                fos.write(0); // write trash bytes
+                fos.write(0); // write trash bytes
+            }
             fos.write(finalmsfdata);
         }
         catch(Exception e)
@@ -164,7 +233,7 @@ public class MsfFile
         int size = 0;
         for (MrfFile mrfindex: fileindex.values())
             for (MsfEntry me: mrfindex.getFiles().values())
-                size += 1 + me.getSize();
+                size += me.getSize();
         return size;
     }
 
